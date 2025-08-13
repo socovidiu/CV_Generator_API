@@ -13,15 +13,32 @@ public class CVService
     {
         var client = new MongoClient(mongoDBSettings.Value.ConnectionString);
         var database = client.GetDatabase(mongoDBSettings.Value.DatabaseName);
-        _cvCollection = database.GetCollection<CVModel>(mongoDBSettings.Value.CollectionName);
+        _cvCollection = database.GetCollection<CVModel>(mongoDBSettings.Value.CVsCollectionName);
     }
 
-    public async Task<List<CVModel>> GetAllCvsAsync() 
+    // ---------- CREATE ----------
+    public Task CreateCvAsync(CVModel cv) =>
+        _cvCollection.InsertOneAsync(cv);
+
+    // ---------- READ ----------
+    public Task<List<CVModel>> GetAllByUserAsync(string userId) =>
+        _cvCollection.Find(c => c.UserId == userId).ToListAsync();
+
+    public async Task<CVModel?> GetByIdForUserAsync(string id, string userId)
     {
-        return await _cvCollection.Find(_ => true).ToListAsync();
-    } 
-    public async Task<CVModel?> GetCvByIdAsync(string id) => await _cvCollection.Find(cv => cv.Id == id).FirstOrDefaultAsync();
-    public async Task CreateCvAsync(CVModel cv) => await _cvCollection.InsertOneAsync(cv);
-    public async Task UpdateCvAsync(string id, CVModel cv) => await _cvCollection.ReplaceOneAsync(c => c.Id == id, cv);
-    public async Task DeleteCvAsync(string id) => await _cvCollection.DeleteOneAsync(c => c.Id == id);
+        var result = await _cvCollection
+            .Find(c => c.Id == id && c.UserId == userId)
+            .FirstOrDefaultAsync();
+
+        // 'result' may be null at runtime; returning CVModel? is correct.
+        return result;
+    }
+
+    // ---------- UPDATE ----------
+    public Task UpdateForUserAsync(string id, string userId, CVModel cv) =>
+        _cvCollection.ReplaceOneAsync(c => c.Id == id && c.UserId == userId, cv);
+
+    // ---------- DELETE ----------
+    public Task DeleteForUserAsync(string id, string userId) =>
+        _cvCollection.DeleteOneAsync(c => c.Id == id && c.UserId == userId);
 }

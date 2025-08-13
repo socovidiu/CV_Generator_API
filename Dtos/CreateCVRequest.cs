@@ -1,17 +1,7 @@
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+namespace CVGeneratorAPI.Dtos;
 
-namespace CVGeneratorAPI.Models;
-
-public class CVModel
+public class CreateCVRequest
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string? Id { get; set; }
-
-    [BsonRepresentation(BsonType.ObjectId)]
-    public required string UserId { get; set; }   // <— owner
-
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
     public required string City { get; set; }
@@ -24,13 +14,12 @@ public class CVModel
     public required string Summary { get; set; }
 
     public required List<string> Skills { get; set; } = new();
-
-    public required List<WorkExperience> WorkExperiences { get; set; } = new();
-    public required List<Education> Educations { get; set; } = new();
-    public required List<Link> Links { get; set; } = new();
+    public required List<WorkExperienceDto> WorkExperiences { get; set; } = new();
+    public required List<EducationDto> Educations { get; set; } = new();
+    public required List<LinkDto> Links { get; set; } = new();
 }
 
-public class WorkExperience
+public class WorkExperienceDto
 {
     public required string Position { get; set; }
     public required string Company { get; set; }
@@ -39,7 +28,7 @@ public class WorkExperience
     public required string Description { get; set; }
 }
 
-public class Education
+public class EducationDto
 {
     public required string Degree { get; set; }
     public required string School { get; set; }
@@ -47,9 +36,8 @@ public class Education
     public DateTime? EndDate { get; set; }
 }
 
-public class Link
+public class LinkDto
 {
-    // Keep string to match TS union type: "LinkedIn" | "GitHub" | "Website"
-    public required string Type { get; set; }
+    public required string Type { get; set; } // "LinkedIn" | "GitHub" | "Website"
     public required string Url { get; set; }
 }
