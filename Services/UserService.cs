@@ -30,4 +30,8 @@ public class UserService
 
     public async Task DeleteUserAsync(string id) =>
         await _userCollection.DeleteOneAsync(u => u.Id == id);
+
+    public async Task<UserModel?> GetByIdAsync(string id) =>
+    await _userCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
+
 }

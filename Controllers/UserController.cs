@@ -1,26 +1,32 @@
 using CVGeneratorAPI.Models;
 using CVGeneratorAPI.Services;
 using CVGeneratorAPI.Dtos;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace CVGeneratorAPI.Controllers;
 
-[Route("api/[controller]")]
 [ApiController]
-public class UserController : ControllerBase
+[Route("api/users")]
+[Tags("Users")]
+public class UsersController : ControllerBase
 {
     private readonly UserService _userService;
+    private readonly TokenService _tokenService;
 
-    public UserController(UserService userService)
+    public UsersController(UserService userService, TokenService tokenService)
     {
         _userService = userService;
+        _tokenService = tokenService;
     }
 
-    // POST: api/user/signup
-    [HttpPost("signup")]
-    public async Task<ActionResult<AuthResponse>> SignUp([FromBody] SignUpRequest request)
+    // POST /api/users  (signup)
+    [AllowAnonymous]
+    [HttpPost]
+    public async Task<ActionResult<AuthResponse>> Create([FromBody] SignUpRequest request)
     {
         var existing = await _userService.GetByUsernameAsync(request.Username);
         if (existing != null)
@@ -32,60 +38,52 @@ public class UserController : ControllerBase
             Email = request.Email,
             PasswordHash = HashPassword(request.Password)
         };
-
         await _userService.CreateUserAsync(user);
 
-        var response = new AuthResponse
+        var token = _tokenService.Create(user);
+
+        return CreatedAtAction(nameof(GetById), new { id = user.Id }, new AuthResponse
         {
             Message = "User created successfully.",
-            User = new UserResponse
-            {
-                Id = user.Id,
-                Username = user.Username,
-                Email = user.Email
-            }
-        };
-
-        return Ok(response);
-    }
-
-    // POST: api/user/login
-    [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
-    {
-        var user = await _userService.GetByUsernameAsync(request.Username);
-        if (user == null || user.PasswordHash != HashPassword(request.Password))
-            return Unauthorized(new AuthResponse { Message = "Invalid credentials." });
-
-        return Ok(new AuthResponse
-        {
-            Message = "Login successful.",
-            User = new UserResponse
-            {
-                Id = user.Id,
-                Username = user.Username,
-                Email = user.Email
-            }
+            Token = token,
+            User = new UserResponse { Id = user.Id!, Username = user.Username, Email = user.Email }
         });
     }
 
-    // PUT: api/user/{id}
+    // GET /api/users/{id}  (self only)
+    [Authorize]
+    [HttpGet("{id}")]
+    public async Task<ActionResult<UserResponse>> GetById(string id)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (currentUserId != id) return Forbid();
+
+        var user = await _userService.GetByIdAsync(id);
+        if (user == null) return NotFound("User not found.");
+
+        return Ok(new UserResponse { Id = user.Id!, Username = user.Username, Email = user.Email });
+    }
+
+    // PUT /api/users/{id}  (self only)
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<ActionResult<UserResponse>> Update(string id, [FromBody] UpdateUserRequest request)
     {
-        var userInDb = await _userService.GetByUsernameAsync(request.Username);
-        if (userInDb != null && userInDb.Id != id)
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (currentUserId != id) return Forbid();
+
+        var existingByUsername = await _userService.GetByUsernameAsync(request.Username);
+        if (existingByUsername != null && existingByUsername.Id != id)
             return BadRequest("Username already taken.");
 
-        var existingUser = await _userService.GetByUsernameAsync(userInDb?.Username ?? "");
-        if (existingUser == null)
-            return NotFound("User not found.");
+        var existingUser = await _userService.GetByIdAsync(id);
+        if (existingUser == null) return NotFound("User not found.");
 
         var passwordHash = string.IsNullOrWhiteSpace(request.Password)
             ? existingUser.PasswordHash
             : HashPassword(request.Password);
 
-        var updatedUser = new UserModel
+        var updated = new UserModel
         {
             Id = id,
             Username = request.Username,
@@ -93,36 +91,19 @@ public class UserController : ControllerBase
             PasswordHash = passwordHash
         };
 
-        await _userService.UpdateUserAsync(id, updatedUser);
+        await _userService.UpdateUserAsync(id, updated);
 
-        return Ok(new UserResponse
-        {
-            Id = updatedUser.Id,
-            Username = updatedUser.Username,
-            Email = updatedUser.Email
-        });
+        return Ok(new UserResponse { Id = updated.Id!, Username = updated.Username, Email = updated.Email });
     }
 
-    // GET: api/user/{username}
-    [HttpGet("{username}")]
-    public async Task<ActionResult<UserResponse>> GetByUsername(string username)
-    {
-        var user = await _userService.GetByUsernameAsync(username);
-        if (user == null)
-            return NotFound("User not found.");
-
-        return Ok(new UserResponse
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email
-        });
-    }
-
-    // DELETE: api/user/{id}
+    // DELETE /api/users/{id}  (self only)
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(string id)
     {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (currentUserId != id) return Forbid();
+
         await _userService.DeleteUserAsync(id);
         return NoContent();
     }
