@@ -5,7 +5,8 @@ This project consists of a **.NET Core Web API backend** with a MongoDB database
 
 ## 🧩 Project Structure
 
-CVGeneratorAPI/
+```
+CV_Generator_API/
 ├─ Controllers/
 │ ├─ UsersController.cs 
 │ ├─ SessionsController.cs 
@@ -30,6 +31,7 @@ CVGeneratorAPI/
 │ └─ launchSettings.json
 ├─ Program.cs # DI, JWT auth, Swagger (Authorize button), pipeline
 ├─ appsettings.json # MongoDBSettings + Jwt configuration
+```
 
 ## ✨ Features
 
